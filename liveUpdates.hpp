@@ -56,7 +56,7 @@ public:
         // Locate leaf node via tree API
         Node *current = static_cast<Node *>(tree.getLeafNode(key));
         if (!current) {
-                throw runtime_error("Leaf node not found for key: " + key);
+            throw runtime_error("Leaf node not found for key: " + key);
         }
 
         // Update the leaf under its lock
@@ -140,6 +140,12 @@ public:
             parent->hash = computeHash(leftHash + rightHash);
             parent->left_child_thread_index = left_updated_by;
             parent->right_child_thread_index = right_updated_by;
+            // if (parent->last_updated_thread_index.update_count > thread_index.update_count) {
+            //     thread_index.update_count = parent->last_updated_thread_index.update_count;
+            //     parent->last_updated_thread_index.thread_index = thread_index.thread_index;
+            // } else {
+            //     parent->last_updated_thread_index = thread_index;
+            // }
             parent->last_updated_thread_index = thread_index;
 
             // Move up

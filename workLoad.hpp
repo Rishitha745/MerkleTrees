@@ -67,6 +67,7 @@ vector<WorkloadEvent> generate_workload(int depth, int total_ops, int read_perce
 
         // random inter-arrival time
         double gap_us = exp_dist(rng); // µs
+        gap_us *= 20;
         this_thread::sleep_for(chrono::microseconds((int)gap_us));
 
         // fixed sleep time

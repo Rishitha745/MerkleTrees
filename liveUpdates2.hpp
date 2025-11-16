@@ -6,7 +6,7 @@ struct ThreadUpdateId {
     int thread_index;
     int update_count;
 
-    ThreadUpdateId(int index = -1) : thread_index(index), update_count(0) {}
+    ThreadUpdateId(int index = -1) : thread_index(index), update_count(-1) {}
 
     string to_string() const {
         return std::to_string(thread_index) + "_" + std::to_string(update_count);
@@ -147,7 +147,12 @@ public:
             parent->left_child_thread_index = left_updated_by;
             parent->right_child_thread_index = right_updated_by;
             parent->last_updated_thread_index = incoming_req;
-
+            // if (parent->last_updated_thread_index.update_count > incoming_req.update_count) {
+            //     incoming_req.update_count = parent->last_updated_thread_index.update_count;
+            //     parent->last_updated_thread_index.thread_index = incoming_req.thread_index;
+            // } else {
+            //     parent->last_updated_thread_index = incoming_req;
+            // }
             // Move up
             current = parent;
         }

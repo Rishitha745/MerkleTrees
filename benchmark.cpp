@@ -283,9 +283,11 @@ int main() {
     cout << "Serial Algorithm finished in " << serial_total_ms << " ms\n";
 
     // ===========================================================
-    // 5. Summary & Stats
+    // 5. Summary & Stats (Clean & Formatted)
     // ===========================================================
-    cout << "\n===== RESULTS =====\n\n";
+    cout << "\n=============================================\n";
+    cout << "               BENCHMARK RESULTS            \n";
+    cout << "=============================================\n\n";
 
     // Flatten per-thread response times into a single vector for reporting/CSV
     vector<long long> live_rt;
@@ -296,57 +298,92 @@ int main() {
     for (const auto &v : pool.response_times_per_thread)
         live_rt.insert(live_rt.end(), v.begin(), v.end());
 
-    cout << "Live: " << live_rt.size() << " responses\n";
-    cout << "Angela: " << angela_rt.size() << " responses\n\n";
+    cout << fixed << setprecision(2);
 
-    cout << "Live Avg RT (us)   : " << accumulate(live_rt.begin(), live_rt.end(), 0LL) / live_rt.size() << endl;
-    cout << "Angela Avg RT (us) : " << accumulate(angela_rt.begin(), angela_rt.end(), 0LL) / angela_rt.size() << endl;
-    cout << "Serial Avg RT (us)   : " << accumulate(serial_rt.begin(), serial_rt.end(), 0LL) / serial_rt.size() << endl;
+    auto avg_live = accumulate(live_rt.begin(), live_rt.end(), 0LL) / (double)live_rt.size();
+    auto avg_angela = accumulate(angela_rt.begin(), angela_rt.end(), 0LL) / (double)angela_rt.size();
+    auto avg_serial = accumulate(serial_rt.begin(), serial_rt.end(), 0LL) / (double)serial_rt.size();
 
-    cout << "\nPercentiles:\n";
-    cout << "   Live P50:  " << percentile(live_rt, 0.50) << " us\n";
-    cout << "   Live P90:  " << percentile(live_rt, 0.90) << " us\n";
-    cout << "   Live P99:  " << percentile(live_rt, 0.99) << " us\n";
+    // --- PRINT SUMMARY TABLE ---
+    cout << "---------------------------------------------\n";
+    cout << "|                Avg Response Time (us)     |\n";
+    cout << "---------------------------------------------\n";
+    cout << "  Live Algorithm    : " << avg_live << " us\n";
+    cout << "  Angela Algorithm  : " << avg_angela << " us\n";
+    cout << "  Serial Algorithm  : " << avg_serial << " us\n";
+    cout << "---------------------------------------------\n\n";
 
-    cout << " Angela P50:  " << percentile(angela_rt, 0.50) << " us\n";
-    cout << " Angela P90:  " << percentile(angela_rt, 0.90) << " us\n";
-    cout << " Angela P99:  " << percentile(angela_rt, 0.99) << " us\n";
+    cout << "---------------------------------------------\n";
+    cout << "|                 Percentiles (us)          |\n";
+    cout << "---------------------------------------------\n";
 
-    cout << "   Serial P50:  " << percentile(serial_rt, 0.50) << " us\n";
-    cout << "   Serial P90:  " << percentile(serial_rt, 0.90) << " us\n";
-    cout << "   Serial P99:  " << percentile(serial_rt, 0.99) << " us\n";
+    cout << left << setw(16) << " "
+         << "P50" << setw(12) << "  P90" << "  P99\n";
+
+    cout << "Live            : "
+         << setw(8) << percentile(live_rt, 0.50)
+         << setw(12) << percentile(live_rt, 0.90)
+         << percentile(live_rt, 0.99) << "\n";
+
+    cout << "Angela          : "
+         << setw(8) << percentile(angela_rt, 0.50)
+         << setw(12) << percentile(angela_rt, 0.90)
+         << percentile(angela_rt, 0.99) << "\n";
+
+    cout << "Serial          : "
+         << setw(8) << percentile(serial_rt, 0.50)
+         << setw(12) << percentile(serial_rt, 0.90)
+         << percentile(serial_rt, 0.99) << "\n";
+
+    cout << "---------------------------------------------\n\n";
 
     // ===========================================================
     // 6. Root Hash Verification
     // ===========================================================
-    cout << "\n===== ROOT HASH VERIFICATION =====\n";
+    cout << "=============================================\n";
+    cout << "           ROOT HASH VERIFICATION           \n";
+    cout << "=============================================\n";
 
     string live_root = liveTree.getRootHash();
     string angela_root = angelaTree.getRootHash();
     string serial_root = serialTree.getRootHash();
 
-    cout << "Live Root   : " << live_root << endl;
-    cout << "Angela Root : " << angela_root << endl;
-    cout << "Serial Root : " << serial_root << endl;
+    cout << "Live Root   : " << live_root << "\n";
+    cout << "Angela Root : " << angela_root << "\n";
+    cout << "Serial Root : " << serial_root << "\n\n";
 
-    bool live_ok = (live_root == serial_root);
-    bool angela_ok = (angela_root == serial_root);
+    cout << "Live   vs Serial : " << (live_root == serial_root ? "MATCH ✓" : "MISMATCH ✗") << "\n";
+    cout << "Angela vs Serial : " << (angela_root == serial_root ? "MATCH ✓" : "MISMATCH ✗") << "\n";
 
-    cout << "\nLive vs Serial   : " << (live_ok ? "MATCH ✓" : "MISMATCH ✗") << endl;
-    cout << "Angela vs Serial : " << (angela_ok ? "MATCH ✓" : "MISMATCH ✗") << endl;
+    cout << "=============================================\n\n";
 
     // ===========================================================
-    // 7. Dump CSV files for plotting
+    // 7. Dump CSV files
     // ===========================================================
     dump_csv("live_response_times.csv", live_rt);
     dump_csv("angela_response_times.csv", angela_rt);
     dump_csv("serial_response_times.csv", serial_rt);
 
-    cout << "\nCSV files written:\n";
+    // NEW: summary CSV for plotting averages easily
+    ofstream summary("summary_metrics.csv");
+    summary << "depth,numThreads,batchSize,totalOps,"
+            << "avg_live_us,avg_angela_us,avg_serial_us\n";
+
+    summary << depth << ","
+            << numThreads << ","
+            << batch_size << ","
+            << total_ops << ","
+            << avg_live << ","
+            << avg_angela << ","
+            << avg_serial << "\n";
+
+    summary.close();
+
+    cout << "CSV files written:\n";
     cout << "  live_response_times.csv\n";
     cout << "  angela_response_times.csv\n";
     cout << "  serial_response_times.csv\n";
+    cout << "  summary_metrics.csv \n";
 
-    cout << "\nDone.\n";
-    return 0;
+    cout << "Done.\n";
 }
