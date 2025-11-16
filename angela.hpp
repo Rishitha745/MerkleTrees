@@ -1,7 +1,14 @@
 #pragma once
 #include "merkleTree.hpp"
+#include <algorithm> // <-- REQUIRED for sort()
+#include <atomic>
+#include <chrono>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <unordered_set>
+#include <vector>
 
-// Structure for MerkleTree nodes
 struct AngelaNode : public MerkleNode {
     atomic<bool> visited;
 
@@ -11,41 +18,99 @@ struct AngelaNode : public MerkleNode {
 
 class AngelaAlgorithm {
 public:
-    /**
-     * Process a batch of updates using Angela's conflict-based parallel algorithm.
-     *
-     * Requirements for TreeType:
-     *  - TreeType::NodeType must inherit from MerkleNode and contain:
-     *        atomic<bool> visited;
-     *  - TreeType must implement:
-     *        getLeafNode(key)
-     *        getRoot()
-     *        getDepth()
-     *  - Node must contain:
-     *        key  (binary path string)
-     *        left, right, parent pointers
-     *        node_mutex
-     *        hash
-     */
+    // ============================================================
+    //  STATIC WORKER WRAPPER (Fixes GCC lambda-thread issue)
+    // ============================================================
     template <typename TreeType>
-    long long processBatch(TreeType &tree, const vector<pair<string, string>> &updates_in, int numThreads) {
+    static void workerFunc(
+        int tid,
+        TreeType *tree,
+        vector<pair<string, string>> *updates,
+        unordered_set<string> *conflictPrefixes,
+        atomic<size_t> *taskIndex,
+        size_t total) {
+        using Node = typename TreeType::NodeTypeAlias;
+
+        while (true) {
+            size_t idx = taskIndex->fetch_add(1);
+            if (idx >= total)
+                break;
+
+            const string &key = (*updates)[idx].first;
+            const string &val = (*updates)[idx].second;
+
+            Node *leaf = tree->getLeafNode(key);
+            if (!leaf)
+                continue;
+
+            // update leaf
+            {
+                lock_guard<mutex> lk(leaf->node_mutex);
+                leaf->hash = computeHash(val);
+            }
+
+            // percolate upwards
+            Node *cur = leaf;
+            Node *root = tree->getRoot();
+
+            while (cur != root) {
+                Node *parent = static_cast<Node *>(cur->parent);
+                if (!parent)
+                    break;
+
+                bool isConflict = conflictPrefixes->count(parent->key);
+
+                if (isConflict) {
+                    unique_lock<mutex> pl(parent->node_mutex);
+
+                    if (!parent->visited.load()) {
+                        parent->visited.store(true);
+                        pl.unlock();
+                        break;
+                    }
+
+                    string L = parent->left ? parent->left->hash : "";
+                    string R = parent->right ? parent->right->hash : "";
+                    parent->hash = computeHash(L + R);
+
+                    cur = parent;
+                    continue;
+                }
+
+                unique_lock<mutex> pl(parent->node_mutex);
+                string L = parent->left ? parent->left->hash : "";
+                string R = parent->right ? parent->right->hash : "";
+                parent->hash = computeHash(L + R);
+
+                cur = parent;
+            }
+        }
+    }
+
+    // ============================================================
+    //  MAIN PROCESS BATCH
+    // ============================================================
+    template <typename TreeType>
+    long long processBatch(
+        TreeType &tree,
+        const vector<pair<string, string>> &updates_in,
+        int numThreads) {
         using Node = typename TreeType::NodeTypeAlias;
 
         if (updates_in.empty())
             return 0;
 
-        int depth = tree.getDepth();
-
-        // -----------------------------------------------------
-        // STEP 1 — Sort updates by key
-        // -----------------------------------------------------
+        // -----------------------------
+        // SORT BY KEY
+        // -----------------------------
         vector<pair<string, string>> updates = updates_in;
+
         sort(updates.begin(), updates.end(),
              [](auto &a, auto &b) { return a.first < b.first; });
 
-        // -----------------------------------------------------
-        // STEP 2 — Compute conflict prefixes
-        // -----------------------------------------------------
+        // -----------------------------
+        // COMPUTE CONFLICT PREFIXES
+        // -----------------------------
         unordered_set<string> conflictPrefixes;
 
         auto lcp = [&](const string &a, const string &b) {
@@ -54,27 +119,24 @@ public:
             for (; i < n; ++i)
                 if (a[i] != b[i])
                     break;
-            return i; // common prefix length
+            return i;
         };
 
         for (size_t i = 0; i + 1 < updates.size(); ++i) {
-            size_t common_len = lcp(updates[i].first, updates[i + 1].first);
-            string prefix = updates[i].first.substr(0, common_len);
-            conflictPrefixes.insert(prefix);
+            size_t cl = lcp(updates[i].first, updates[i + 1].first);
+            conflictPrefixes.insert(updates[i].first.substr(0, cl));
         }
 
-        // -----------------------------------------------------
-        // STEP 3 — Reset the visited flag for all conflict nodes
-        // -----------------------------------------------------
-        for (const auto &prefix : conflictPrefixes) {
+        // reset visited flags
+        for (auto &prefix : conflictPrefixes) {
             Node *n = getNodeByPrefix(tree, prefix);
             if (n)
                 n->visited.store(false);
         }
 
-        // -----------------------------------------------------
-        // STEP 4 — Parallel update execution
-        // -----------------------------------------------------
+        // -----------------------------
+        // PARALLEL EXECUTION
+        // -----------------------------
         atomic<size_t> taskIndex(0);
         size_t total = updates.size();
 
@@ -83,77 +145,16 @@ public:
         vector<thread> workers;
         workers.reserve(numThreads);
 
-        // -----------------------------------------------------
-        // Worker function (each thread)
-        // -----------------------------------------------------
-        auto worker = [&](int tid) {
-            while (true) {
-                size_t idx = taskIndex.fetch_add(1);
-                if (idx >= total)
-                    break;
-
-                const string &key = updates[idx].first;
-                const string &val = updates[idx].second;
-
-                Node *leaf = tree.getLeafNode(key);
-                if (!leaf)
-                    continue;
-
-                // UPDATE LEAF
-                {
-                    lock_guard<mutex> lk(leaf->node_mutex);
-                    leaf->hash = computeHash(val);
-                }
-
-                // -----------------------------------------------------
-                // PERCOLATE UPWARDS
-                // -----------------------------------------------------
-                Node *cur = leaf;
-                Node *root = tree.getRoot();
-
-                while (cur != root) {
-                    Node *parent = static_cast<Node *>(cur->parent);
-                    if (!parent)
-                        break;
-
-                    bool isConflict = conflictPrefixes.count(parent->key);
-
-                    if (isConflict) {
-                        unique_lock<mutex> pl(parent->node_mutex);
-
-                        bool wasVisited = parent->visited.load();
-                        if (!wasVisited) {
-                            parent->visited.store(true);
-                            // STOP THREAD HERE
-                            pl.unlock();
-                            break;
-                        }
-
-                        // otherwise: combine hashes
-                        string L = parent->left ? parent->left->hash : "";
-                        string R = parent->right ? parent->right->hash : "";
-                        parent->hash = computeHash(L + R);
-
-                        cur = parent;
-                        continue;
-                    }
-
-                    // NON-CONFLICT NODE: Just recompute hash
-                    {
-                        unique_lock<mutex> pl(parent->node_mutex);
-                        string L = parent->left ? parent->left->hash : "";
-                        string R = parent->right ? parent->right->hash : "";
-                        parent->hash = computeHash(L + R);
-                    }
-
-                    cur = parent;
-                }
-            }
-        };
-
-        // Launch threads
-        for (int i = 0; i < numThreads; i++)
-            workers.emplace_back(worker, i);
+        for (int i = 0; i < numThreads; i++) {
+            workers.emplace_back(
+                workerFunc<TreeType>,
+                i,
+                &tree,
+                &updates,
+                &conflictPrefixes,
+                &taskIndex,
+                total);
+        }
 
         for (auto &t : workers)
             t.join();
