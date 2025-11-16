@@ -11,7 +11,7 @@ from datetime import datetime
 DEPTHS       = [12, 16, 20, 24]
 THREADS      = [2, 4, 8, 16, 32, 64]
 BATCH_SIZES  = [1024, 2048, 4096]
-TOTAL_OPS    = [50000, 100000, 500000, 1000000]
+TOTAL_OPS    = [1000000]
 
 BINARY = "./bench.out"
 SUMMARY_FILE = "all_results.csv"

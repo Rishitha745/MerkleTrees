@@ -4,10 +4,21 @@
 #include "utils.hpp"
 #include "workLoad.hpp"
 
+#include <iomanip>
+#include <numeric>
+
 using namespace std;
 using namespace std::chrono;
 
-// LiveThreadPool (replace your existing definition with this)
+// =========================================================
+// GLOBAL TIMING BASELINE
+// All timestamps = now_us() - workload_start
+// =========================================================
+long long workload_start = 0;
+
+// =========================================================
+// LiveThreadPool — corrected timing: NO NEGATIVES EVER
+// =========================================================
 template <typename TreeType, typename Algo>
 class LiveThreadPool {
 public:
@@ -16,23 +27,17 @@ public:
 
     int numThreads;
     atomic<bool> stop{false};
-    atomic<int> processed{0};
     queue<WorkloadEvent> q;
     mutex q_mtx;
     condition_variable cv;
     vector<thread> workers;
 
-    // Per-thread response times — each thread writes to its own vector (no lock)
     vector<vector<long long>> response_times_per_thread;
-
     static thread_local int update_counter;
 
     LiveThreadPool(TreeType &t, Algo &a, int threads)
         : tree(t), algo(a), numThreads(threads) {
-
-        // allocate per-thread response-time vectors
         response_times_per_thread.resize(threads);
-
         workers.reserve(threads);
         for (int i = 0; i < threads; i++)
             workers.emplace_back(&LiveThreadPool::worker, this, i);
@@ -40,33 +45,29 @@ public:
 
     ~LiveThreadPool() {
         {
-            unique_lock<mutex> lk(q_mtx);
+            lock_guard<mutex> lk(q_mtx);
             stop = true;
         }
         cv.notify_all();
-
-        for (auto &t : workers)
-            if (t.joinable())
-                t.join();
+        for (auto &w : workers)
+            if (w.joinable())
+                w.join();
     }
 
     void enqueue(const OperationRequest &op, long long arrival_us) {
-        {
-            unique_lock<mutex> lk(q_mtx);
-            q.push({op, arrival_us});
-        }
+        lock_guard<mutex> lk(q_mtx);
+        q.push({op, arrival_us});
         cv.notify_one();
     }
 
-    void worker(int thread_id) {
+    void worker(int tid) {
         while (true) {
             WorkloadEvent job;
 
-            // Wait for job
+            // wait for job
             {
                 unique_lock<mutex> lk(q_mtx);
-                cv.wait(lk, [&] { return !q.empty() || stop; });
-
+                cv.wait(lk, [&] { return stop || !q.empty(); });
                 if (stop && q.empty())
                     return;
 
@@ -74,26 +75,27 @@ public:
                 q.pop();
             }
 
-            long long start_exec = now_us();
+            // -----------------------------------------------------
+            // CORRECT TIMING:
+            // exec_start and finish_us both relative to workload_start
+            // -----------------------------------------------------
+            long long exec_start = now_us() - workload_start;
 
             if (job.op.op_type == UPDATE) {
                 update_counter++;
-                ThreadUpdateId tid(thread_id);
-                tid.update_count = update_counter;
-                algo.update(tree, job.op.key, job.op.value, tid);
+                ThreadUpdateId id(tid);
+                id.update_count = update_counter;
+                algo.update(tree, job.op.key, job.op.value, id);
             } else if (job.op.op_type == READ_ROOT) {
                 tree.getRootHash();
             } else if (job.op.op_type == READ_LEAF) {
                 tree.getLeafNode(job.op.key);
             }
 
-            long long finish = now_us();
-            long long response = finish - job.arrival_us;
+            long long finish_us = now_us() - workload_start;
+            long long resp = finish_us - job.arrival_us;
 
-            // write into this thread's local response-time vector (no lock)
-            response_times_per_thread[thread_id].push_back(response);
-
-            processed++;
+            response_times_per_thread[tid].push_back(resp);
         }
     }
 };
@@ -102,9 +104,8 @@ template <typename T, typename A>
 thread_local int LiveThreadPool<T, A>::update_counter = 0;
 
 // ===============================================================
-//                         BENCHMARK MAIN
+//                          MAIN
 // ===============================================================
-
 int main() {
     int depth = 10;
     int total_ops = 50000;
@@ -113,235 +114,167 @@ int main() {
     double read_percent = 0;
 
     cout << "Benchmark Merkle Trees (Live vs Angela)\n";
-    cout << "Enter tree depth, batch size, number of threads, and total operations: ";
+    cout << "Enter depth, batch_size, threads, total_ops: ";
     cin >> depth >> batch_size >> numThreads >> total_ops;
 
-    cout << "Depth=" << depth << "  Ops=" << total_ops
-         << "  Threads=" << numThreads << endl;
+    cout << "Depth=" << depth << " Threads=" << numThreads
+         << " Ops=" << total_ops << endl;
 
-    // ===========================================================
-    // 1. Generate workload with timestamps
-    // ===========================================================
+    // -----------------------------------------------------------
+    // Generate workload
+    // -----------------------------------------------------------
     cout << "\nGenerating workload...\n";
-    vector<WorkloadEvent> stream = generate_workload(depth, total_ops, read_percent);
+    workload_start = now_us(); // ZERO POINT for all timestamps
+
+    vector<WorkloadEvent> stream =
+        generate_workload(depth, total_ops, read_percent, workload_start);
 
     cout << "Workload generated.\n";
 
     // ===========================================================
-    // 2. Run Live Algorithm (real-time playback)
+    // 2. LIVE ALGORITHM (real-time playback)
     // ===========================================================
     cout << "\nRunning Live Algorithm...\n";
 
     SparseMerkleTree<LiveUpdatesNode> liveTree(depth);
     LiveAlgorithm liveAlgo;
 
-    LiveThreadPool<SparseMerkleTree<LiveUpdatesNode>, LiveAlgorithm> pool(liveTree, liveAlgo, numThreads);
+    LiveThreadPool pool(liveTree, liveAlgo, numThreads);
 
     long long playback_start = now_us();
 
     for (auto &evt : stream) {
-        long long target = playback_start + evt.arrival_us;
-        while (now_us() < target)
+        long long target_us = workload_start + evt.arrival_us;
+        while (now_us() < target_us)
             this_thread::sleep_for(50ns);
 
         pool.enqueue(evt.op, evt.arrival_us);
     }
 
-    // Close pool
+    // stop pool
     {
-        unique_lock<mutex> lk(pool.q_mtx);
+        lock_guard<mutex> lk(pool.q_mtx);
         pool.stop = true;
     }
     pool.cv.notify_all();
-
     for (auto &t : pool.workers)
         if (t.joinable())
             t.join();
 
-    cout << "Live Algorithm finished.\n";
+    long long live_total_ms =
+        (now_us() - playback_start) / 1000;
+    cout << "Live finished in " << live_total_ms << " ms\n";
 
     // ===========================================================
-    // 3. Run Angela Algorithm (batch)
+    // 3. ANGELA (batch)
     // ===========================================================
-    cout << "\nRunning Angela Algorithm in batches (batch_size = " << batch_size << ")...\n";
+    cout << "\nRunning Angela Algorithm...\n";
 
     SparseMerkleTree<AngelaNode> angelaTree(depth);
     AngelaAlgorithm angela;
 
-    vector<pair<string, string>> current_batch;
-    current_batch.reserve(batch_size);
+    vector<long long> angela_rt;
+    angela_rt.reserve(total_ops);
 
-    // We'll store the arrival_us for each update in the batch so we can compute response times.
-    vector<long long> current_batch_arrival_us;
-    current_batch_arrival_us.reserve(batch_size);
+    vector<pair<string, string>> batch;
+    vector<long long> batch_arrivals;
+    batch.reserve(batch_size);
+    batch_arrivals.reserve(batch_size);
 
-    vector<long long> angela_rt; // per-request response times for Angela
-    angela_rt.reserve((size_t)total_ops);
+    long long angela_batch_start, angela_batch_finish;
 
-    long long angela_total_ms_sum = 0; // sum of each batch's ms
-    long long angela_first_batch_start = 0;
-    long long angela_last_batch_finish = 0;
-    bool first_batch = true;
-
-    // Iterate the stream in order and form batches of UPDATE ops only
     for (auto &evt : stream) {
         if (evt.op.op_type != UPDATE)
             continue;
 
-        current_batch.emplace_back(evt.op.key, evt.op.value);
-        current_batch_arrival_us.push_back(evt.arrival_us);
+        batch.emplace_back(evt.op.key, evt.op.value);
+        batch_arrivals.push_back(evt.arrival_us);
 
-        if ((int)current_batch.size() >= batch_size) {
-            // process this batch
-            long long batch_start = now_us();
-            if (first_batch) {
-                angela_first_batch_start = batch_start;
-                first_batch = false;
-            }
+        if ((int)batch.size() == batch_size) {
+            angela_batch_start = now_us() - workload_start;
 
-            long long batch_ms = angela.processBatch(angelaTree, current_batch, numThreads);
-            angela_total_ms_sum += batch_ms;
-            long long batch_finish = batch_start + batch_ms * 1000LL;
-            angela_last_batch_finish = batch_finish;
+            long long ms = angela.processBatch(angelaTree, batch, numThreads);
+            angela_batch_finish = now_us() - workload_start;
 
-            // record per-request response times for items in this batch
-            for (size_t i = 0; i < current_batch.size(); ++i) {
-                long long arrival = current_batch_arrival_us[i];
-                long long resp = batch_finish - arrival;
-                angela_rt.push_back(resp);
-            }
+            for (size_t i = 0; i < batch.size(); i++)
+                angela_rt.push_back(angela_batch_finish - batch_arrivals[i]);
 
-            // clear batch
-            current_batch.clear();
-            current_batch_arrival_us.clear();
+            batch.clear();
+            batch_arrivals.clear();
         }
     }
 
-    // Process final (possibly smaller) batch if present
-    if (!current_batch.empty()) {
-        long long batch_start = now_us();
-        if (first_batch) {
-            angela_first_batch_start = batch_start;
-            first_batch = false;
-        }
+    if (!batch.empty()) {
+        long long s = now_us() - workload_start;
+        long long ms = angela.processBatch(angelaTree, batch, numThreads);
+        long long f = now_us() - workload_start;
 
-        long long batch_ms = angela.processBatch(angelaTree, current_batch, numThreads);
-        angela_total_ms_sum += batch_ms;
-        long long batch_finish = batch_start + batch_ms * 1000LL;
-        angela_last_batch_finish = batch_finish;
-
-        for (size_t i = 0; i < current_batch.size(); ++i) {
-            long long arrival = current_batch_arrival_us[i];
-            long long resp = batch_finish - arrival;
-            angela_rt.push_back(resp);
-        }
-        current_batch.clear();
-        current_batch_arrival_us.clear();
+        for (size_t i = 0; i < batch.size(); i++)
+            angela_rt.push_back(f - batch_arrivals[i]);
     }
 
-    // Optionally compute total wall-clock time taken for Angela batches
-    long long angela_wall_clock_ms = 0;
-    if (!first_batch) {
-        angela_wall_clock_ms = (angela_last_batch_finish - angela_first_batch_start) / 1000LL; // in ms
-    }
-    cout << "Angela: processed " << angela_rt.size() << " updates in batches.\n";
-    cout << "Angela sum(batch_ms) = " << angela_total_ms_sum << " ms (sum of per-batch reported times)\n";
-    cout << "Angela wall-clock (first batch start -> last batch finish) = " << angela_wall_clock_ms << " ms\n";
+    cout << "Angela processed " << angela_rt.size() << " updates.\n";
 
     // ===========================================================
-    // 4. Run Serial Algorithm
+    // 4. SERIAL
     // ===========================================================
     cout << "\nRunning Serial Algorithm...\n";
 
     SparseMerkleTree<MerkleNode> serialTree(depth);
-
     vector<long long> serial_rt;
     serial_rt.reserve(total_ops);
 
-    long long serial_start = now_us();
-
     for (auto &evt : stream) {
-        long long arrival = evt.arrival_us;
+        long long exec_start = now_us() - workload_start;
 
-        long long op_start = now_us();
-
-        if (evt.op.op_type == UPDATE) {
+        if (evt.op.op_type == UPDATE)
             updateSerial(serialTree, evt.op.key, evt.op.value);
-        } else if (evt.op.op_type == READ_ROOT) {
+        else if (evt.op.op_type == READ_ROOT)
             serialTree.getRootHash();
-        } else if (evt.op.op_type == READ_LEAF) {
+        else
             serialTree.getLeafNode(evt.op.key);
-        }
 
-        long long op_finish = now_us();
-        serial_rt.push_back(op_finish - arrival);
+        long long finish_us = now_us() - workload_start;
+        serial_rt.push_back(finish_us - evt.arrival_us);
     }
 
-    long long serial_finish = now_us();
-    long long serial_total_ms = (serial_finish - serial_start) / 1000;
-
-    cout << "Serial Algorithm finished in " << serial_total_ms << " ms\n";
+    cout << "Serial done.\n";
 
     // ===========================================================
-    // 5. Summary & Stats (Clean & Formatted)
+    // 5. SUMMARY TABLE
     // ===========================================================
-    cout << "\n=============================================\n";
-    cout << "               BENCHMARK RESULTS            \n";
-    cout << "=============================================\n\n";
+    cout << "\n==== RESULTS ====\n";
 
-    // Flatten per-thread response times into a single vector for reporting/CSV
     vector<long long> live_rt;
-    size_t total = 0;
-    for (const auto &v : pool.response_times_per_thread)
-        total += v.size();
-    live_rt.reserve(total);
-    for (const auto &v : pool.response_times_per_thread)
-        live_rt.insert(live_rt.end(), v.begin(), v.end());
-
-    cout << fixed << setprecision(2);
+    for (auto &vec : pool.response_times_per_thread)
+        live_rt.insert(live_rt.end(), vec.begin(), vec.end());
 
     auto avg_live = accumulate(live_rt.begin(), live_rt.end(), 0LL) / (double)live_rt.size();
     auto avg_angela = accumulate(angela_rt.begin(), angela_rt.end(), 0LL) / (double)angela_rt.size();
     auto avg_serial = accumulate(serial_rt.begin(), serial_rt.end(), 0LL) / (double)serial_rt.size();
 
-    // --- PRINT SUMMARY TABLE ---
-    cout << "---------------------------------------------\n";
-    cout << "|                Avg Response Time (us)     |\n";
-    cout << "---------------------------------------------\n";
-    cout << "  Live Algorithm    : " << avg_live << " us\n";
-    cout << "  Angela Algorithm  : " << avg_angela << " us\n";
-    cout << "  Serial Algorithm  : " << avg_serial << " us\n";
-    cout << "---------------------------------------------\n\n";
+    cout << fixed << setprecision(2);
+    cout << "Live Avg    : " << avg_live << " us\n";
+    cout << "Angela Avg  : " << avg_angela << " us\n";
+    cout << "Serial Avg  : " << avg_serial << " us\n";
 
-    cout << "---------------------------------------------\n";
-    cout << "|                 Percentiles (us)          |\n";
-    cout << "---------------------------------------------\n";
+    // Write CSV summary
+    ofstream summary("summary_metrics.csv");
+    summary << "depth,threads,batch,ops,avg_live,avg_angela,avg_serial\n";
+    summary << depth << "," << numThreads << "," << batch_size << ","
+            << total_ops << ","
+            << avg_live << ","
+            << avg_angela << ","
+            << avg_serial << "\n";
 
-    cout << left << setw(16) << " "
-         << "P50" << setw(12) << "  P90" << "  P99\n";
-
-    cout << "Live            : "
-         << setw(8) << percentile(live_rt, 0.50)
-         << setw(12) << percentile(live_rt, 0.90)
-         << percentile(live_rt, 0.99) << "\n";
-
-    cout << "Angela          : "
-         << setw(8) << percentile(angela_rt, 0.50)
-         << setw(12) << percentile(angela_rt, 0.90)
-         << percentile(angela_rt, 0.99) << "\n";
-
-    cout << "Serial          : "
-         << setw(8) << percentile(serial_rt, 0.50)
-         << setw(12) << percentile(serial_rt, 0.90)
-         << percentile(serial_rt, 0.99) << "\n";
-
-    cout << "---------------------------------------------\n\n";
-
+    cout << "Wrote summary_metrics.csv\n";
+    cout << "Done.\n";
+    
     // ===========================================================
-    // 6. Root Hash Verification
+    // 7. ROOT HASH VERIFICATION
     // ===========================================================
-    cout << "=============================================\n";
-    cout << "           ROOT HASH VERIFICATION           \n";
+    cout << "\n=============================================\n";
+    cout << "            ROOT HASH VERIFICATION           \n";
     cout << "=============================================\n";
 
     string live_root = liveTree.getRootHash();
@@ -352,38 +285,27 @@ int main() {
     cout << "Angela Root : " << angela_root << "\n";
     cout << "Serial Root : " << serial_root << "\n\n";
 
-    cout << "Live   vs Serial : " << (live_root == serial_root ? "MATCH ✓" : "MISMATCH ✗") << "\n";
-    cout << "Angela vs Serial : " << (angela_root == serial_root ? "MATCH ✓" : "MISMATCH ✗") << "\n";
+    cout << "Live   vs Serial : "
+         << (live_root == serial_root ? "MATCH ✓" : "✗ MISMATCH") << "\n";
+
+    cout << "Angela vs Serial : "
+         << (angela_root == serial_root ? "MATCH ✓" : "✗ MISMATCH") << "\n";
 
     cout << "=============================================\n\n";
 
     // ===========================================================
-    // 7. Dump CSV files
+    // 8. WRITE CSV FILES FOR PLOTTING
     // ===========================================================
     dump_csv("live_response_times.csv", live_rt);
     dump_csv("angela_response_times.csv", angela_rt);
     dump_csv("serial_response_times.csv", serial_rt);
 
-    // NEW: summary CSV for plotting averages easily
-    ofstream summary("summary_metrics.csv");
-    summary << "depth,numThreads,batchSize,totalOps,"
-            << "avg_live_us,avg_angela_us,avg_serial_us\n";
-
-    summary << depth << ","
-            << numThreads << ","
-            << batch_size << ","
-            << total_ops << ","
-            << avg_live << ","
-            << avg_angela << ","
-            << avg_serial << "\n";
-
-    summary.close();
-
     cout << "CSV files written:\n";
-    cout << "  live_response_times.csv\n";
-    cout << "  angela_response_times.csv\n";
-    cout << "  serial_response_times.csv\n";
-    cout << "  summary_metrics.csv \n";
+    cout << "   live_response_times.csv\n";
+    cout << "   angela_response_times.csv\n";
+    cout << "   serial_response_times.csv\n";
+    cout << "   summary_metrics.csv\n";
 
-    cout << "Done.\n";
+    cout << "\nDone.\n";
+    return 0;
 }
