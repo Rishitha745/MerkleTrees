@@ -1,5 +1,5 @@
 #include "angela.hpp"
-#include "liveUpdates.hpp"
+#include "liveUpdates2.hpp"
 #include "merkleTree.hpp"
 #include "utils.hpp"
 #include "workLoad.hpp"
@@ -77,7 +77,6 @@ public:
                 update_counter++;
                 ThreadUpdateId tid(thread_id);
                 tid.update_count = update_counter;
-
                 algo.update(tree, job.op.key, job.op.value, tid);
             } else if (job.op.op_type == READ_ROOT) {
                 tree.getRootHash();
