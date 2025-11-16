@@ -1,5 +1,5 @@
 #include "angela.hpp"
-#include "liveUpdates2.hpp"
+#include "liveUpdates.hpp"
 #include "merkleTree.hpp"
 #include "utils.hpp"
 #include "workLoad.hpp"
@@ -7,7 +7,7 @@
 using namespace std;
 using namespace std::chrono;
 
-// Live Algorithm Thread Pool
+// LiveThreadPool (replace your existing definition with this)
 template <typename TreeType, typename Algo>
 class LiveThreadPool {
 public:
@@ -22,14 +22,17 @@ public:
     condition_variable cv;
     vector<thread> workers;
 
-    // response times are stored here
-    vector<long long> response_times;
-    mutex rt_mtx;
+    // Per-thread response times — each thread writes to its own vector (no lock)
+    vector<vector<long long>> response_times_per_thread;
 
     static thread_local int update_counter;
 
     LiveThreadPool(TreeType &t, Algo &a, int threads)
         : tree(t), algo(a), numThreads(threads) {
+
+        // allocate per-thread response-time vectors
+        response_times_per_thread.resize(threads);
+
         workers.reserve(threads);
         for (int i = 0; i < threads; i++)
             workers.emplace_back(&LiveThreadPool::worker, this, i);
@@ -87,10 +90,8 @@ public:
             long long finish = now_us();
             long long response = finish - job.arrival_us;
 
-            {
-                lock_guard<mutex> lg(rt_mtx);
-                response_times.push_back(response);
-            }
+            // write into this thread's local response-time vector (no lock)
+            response_times_per_thread[thread_id].push_back(response);
 
             processed++;
         }
@@ -286,14 +287,21 @@ int main() {
     // ===========================================================
     cout << "\n===== RESULTS =====\n\n";
 
-    auto &live_rt = pool.response_times;
+    // Flatten per-thread response times into a single vector for reporting/CSV
+    vector<long long> live_rt;
+    size_t total = 0;
+    for (const auto &v : pool.response_times_per_thread)
+        total += v.size();
+    live_rt.reserve(total);
+    for (const auto &v : pool.response_times_per_thread)
+        live_rt.insert(live_rt.end(), v.begin(), v.end());
 
     cout << "Live: " << live_rt.size() << " responses\n";
     cout << "Angela: " << angela_rt.size() << " responses\n\n";
 
     cout << "Live Avg RT (us)   : " << accumulate(live_rt.begin(), live_rt.end(), 0LL) / live_rt.size() << endl;
     cout << "Angela Avg RT (us) : " << accumulate(angela_rt.begin(), angela_rt.end(), 0LL) / angela_rt.size() << endl;
-    cout << "\nSerial Avg RT (us)   : " << accumulate(serial_rt.begin(), serial_rt.end(), 0LL) / serial_rt.size() << endl;
+    cout << "Serial Avg RT (us)   : " << accumulate(serial_rt.begin(), serial_rt.end(), 0LL) / serial_rt.size() << endl;
 
     cout << "\nPercentiles:\n";
     cout << "   Live P50:  " << percentile(live_rt, 0.50) << " us\n";
