@@ -1,3 +1,4 @@
+#pragma once
 #include "merkleTree.hpp"
 
 using namespace std;

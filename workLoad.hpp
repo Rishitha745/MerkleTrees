@@ -1,3 +1,4 @@
+#pragma once
 #include "merkleTree.hpp"
 
 // Enum to differentiate operation types
@@ -62,7 +63,7 @@ vector<WorkloadEvent> generate_workload(int depth, int total_ops, int read_perce
     for (int i = 0; i < total_ops; i++) {
         OperationRequest op = generate_random_operation(depth, read_percent, leaf_keys);
         long long t = now_us() - gen_start;
-        stream.emplace_back(op, t); 
+        stream.emplace_back(op, t);
 
         // random inter-arrival time
         double gap_us = exp_dist(rng); // µs
