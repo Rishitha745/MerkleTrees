@@ -1,0 +1,2 @@
+depth,threads,batch,ops,avg_live,avg_angela,avg_serial
+10,8,20,1000,39.522,28210.3,30.645

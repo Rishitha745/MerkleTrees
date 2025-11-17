@@ -50,8 +50,7 @@ vector<WorkloadEvent> generate_workload(
     int depth,
     int total_ops,
     double read_percent,
-    long long workload_start // <<< PASSED FROM MAIN
-) {
+    long long workload_start) {
     vector<WorkloadEvent> stream;
     stream.reserve(total_ops);
 
@@ -70,31 +69,29 @@ vector<WorkloadEvent> generate_workload(
     // RNG for inter-arrival time
     // ----------------------------------------------------------
     default_random_engine rng(random_device{}());
-    exponential_distribution<double> exp_dist(1.0 / 20.0); // mean = 20 µs
 
-    // ----------------------------------------------------------
-    // Timing baseline: ALL arrivals = now_us() - workload_start
-    // ----------------------------------------------------------
-    long long gen_start = now_us();
+    // Log-normal distribution gives bursty values like real mempool traffic
+    double mean_gap_us = 2000.0; // average 2 ms
+    double sigma = 0.5;          // burstiness
+    lognormal_distribution<double> gap_dist(log(mean_gap_us), sigma);
 
     for (int i = 0; i < total_ops; i++) {
+
         OperationRequest op =
             generate_random_operation(depth, read_percent, leaf_keys);
 
-        // ------------------------------------------------------
-        // CORRECT TIMESTAMP:
-        // arrival_us is *relative to workload_start*
-        // ------------------------------------------------------
-        long long arrival_us =
-            (now_us() - workload_start);
-
+        long long arrival_us = now_us() - workload_start;
         stream.emplace_back(op, arrival_us);
 
-        // ------------------------------------------------------
-        // Simulated inter-arrival gap
-        // ------------------------------------------------------
-        double gap_us = exp_dist(rng) * 20.0;
-        this_thread::sleep_for(std::chrono::microseconds((int)gap_us));
+        double gap_us = gap_dist(rng);
+
+        // clamp to avoid unrealistic values
+        if (gap_us < 200.0)
+            gap_us = 200.0; // 0.2 ms minimum
+        if (gap_us > 20000.0)
+            gap_us = 20000.0; // 20 ms max allowed
+
+        this_thread::sleep_for(chrono::microseconds((int)gap_us));
     }
 
     return stream;

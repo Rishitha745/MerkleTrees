@@ -10,21 +10,14 @@
 using namespace std;
 using namespace std::chrono;
 
-// =========================================================
-// GLOBAL TIMING BASELINE
-// All timestamps = now_us() - workload_start
-// =========================================================
 long long workload_start = 0;
 
-// =========================================================
-// LiveThreadPool — corrected timing: NO NEGATIVES EVER
-// =========================================================
 template <typename TreeType, typename Algo>
 class LiveThreadPool {
 public:
     TreeType &tree;
     Algo &algo;
-
+    long long playback_start_time = 0;
     int numThreads;
     atomic<bool> stop{false};
     queue<WorkloadEvent> q;
@@ -75,12 +68,6 @@ public:
                 q.pop();
             }
 
-            // -----------------------------------------------------
-            // CORRECT TIMING:
-            // exec_start and finish_us both relative to workload_start
-            // -----------------------------------------------------
-            long long exec_start = now_us() - workload_start;
-
             if (job.op.op_type == UPDATE) {
                 update_counter++;
                 ThreadUpdateId id(tid);
@@ -92,7 +79,7 @@ public:
                 tree.getLeafNode(job.op.key);
             }
 
-            long long finish_us = now_us() - workload_start;
+            long long finish_us = now_us() - playback_start_time;
             long long resp = finish_us - job.arrival_us;
 
             response_times_per_thread[tid].push_back(resp);
@@ -142,9 +129,9 @@ int main() {
     LiveThreadPool pool(liveTree, liveAlgo, numThreads);
 
     long long playback_start = now_us();
-
+    pool.playback_start_time = playback_start;
     for (auto &evt : stream) {
-        long long target_us = workload_start + evt.arrival_us;
+        long long target_us = playback_start + evt.arrival_us;
         while (now_us() < target_us)
             this_thread::sleep_for(50ns);
 
@@ -163,7 +150,7 @@ int main() {
 
     long long live_total_ms =
         (now_us() - playback_start) / 1000;
-    cout << "Live finished in " << live_total_ms << " ms\n";
+    cout << "Live ALgorithm finished in " << live_total_ms << " ms\n";
 
     // ===========================================================
     // 3. ANGELA (batch)
@@ -182,23 +169,26 @@ int main() {
     batch_arrivals.reserve(batch_size);
 
     long long angela_batch_start, angela_batch_finish;
-    long long exec_start = now_us() - workload_start;
+    long long exec_start = now_us();
 
     for (auto &evt : stream) {
         if (evt.op.op_type != UPDATE)
             continue;
-
+        long long target_us = exec_start + evt.arrival_us;
+        while (now_us() < target_us)
+            this_thread::sleep_for(50ns);
         batch.emplace_back(evt.op.key, evt.op.value);
         batch_arrivals.push_back(evt.arrival_us);
 
         if ((int)batch.size() == batch_size) {
-            angela_batch_start = now_us() - workload_start;
+            angela_batch_start = now_us();
 
             long long ms = angela.processBatch(angelaTree, batch, numThreads);
-            angela_batch_finish = now_us() - workload_start;
+            angela_batch_finish = now_us();
 
-            for (size_t i = 0; i < batch.size(); i++)
+            for (size_t i = 0; i < batch.size(); i++) {
                 angela_rt.push_back(angela_batch_finish - exec_start - batch_arrivals[i]);
+            }
 
             batch.clear();
             batch_arrivals.clear();
@@ -208,13 +198,14 @@ int main() {
     if (!batch.empty()) {
         long long s = now_us() - workload_start;
         long long ms = angela.processBatch(angelaTree, batch, numThreads);
-        long long f = now_us() - workload_start;
+        long long f = now_us();
 
         for (size_t i = 0; i < batch.size(); i++)
-            angela_rt.push_back(f - batch_arrivals[i]);
+            angela_rt.push_back(f - exec_start - batch_arrivals[i]);
     }
-
-    cout << "Angela processed " << angela_rt.size() << " updates.\n";
+    long long angela_finish = now_us();
+    long long angela_execution_time = (angela_finish - exec_start) / 1000;
+    cout << "Angela algorithm finished in " << angela_execution_time << " ms.\n";
 
     // ===========================================================
     // 4. SERIAL
@@ -225,9 +216,11 @@ int main() {
     vector<long long> serial_rt;
     serial_rt.reserve(total_ops);
 
-    exec_start = now_us() - workload_start;
+    exec_start = now_us();
     for (auto &evt : stream) {
-
+        long long target_us = exec_start + evt.arrival_us;
+        while (now_us() < target_us)
+            this_thread::sleep_for(50ns);
         if (evt.op.op_type == UPDATE)
             updateSerial(serialTree, evt.op.key, evt.op.value);
         else if (evt.op.op_type == READ_ROOT)
@@ -235,16 +228,17 @@ int main() {
         else
             serialTree.getLeafNode(evt.op.key);
 
-        long long finish_us = now_us() - workload_start;
+        long long finish_us = now_us();
         serial_rt.push_back(finish_us - exec_start - evt.arrival_us);
     }
-
-    cout << "Serial done.\n";
+    long long serial_finish = now_us();
+    long long serial_execution_time = (serial_finish - exec_start) / 1000;
+    cout << "Serial algorithm finished in " << serial_execution_time << " ms.\n";
 
     // ===========================================================
     // 5. SUMMARY TABLE
     // ===========================================================
-    cout << "\n==== RESULTS ====\n";
+    cout << "\n==== RESPONSE TIME ====\n";
 
     vector<long long> live_rt;
     for (auto &vec : pool.response_times_per_thread)
@@ -255,9 +249,15 @@ int main() {
     auto avg_serial = accumulate(serial_rt.begin(), serial_rt.end(), 0LL) / (double)serial_rt.size();
 
     cout << fixed << setprecision(2);
-    cout << "Live Avg    : " << avg_live << " us\n";
-    cout << "Angela Avg  : " << avg_angela << " us\n";
-    cout << "Serial Avg  : " << avg_serial << " us\n";
+    cout << "Live Avg Response Time   : " << avg_live << " us\n";
+    cout << "Angela Avg Response Time : " << avg_angela << " us\n";
+    cout << "Serial Avg Response Time : " << avg_serial << " us\n";
+
+    cout << "\n==== EXECUTION TIME ====\n";
+
+    cout << "Live Execution Time   : " << live_total_ms << " us\n";
+    cout << "Angela Execution Time : " << angela_execution_time << " us\n";
+    cout << "Serial Execution Time : " << serial_execution_time << " us\n";
 
     // Write CSV summary
     ofstream summary("summary_metrics.csv");
@@ -267,9 +267,6 @@ int main() {
             << avg_live << ","
             << avg_angela << ","
             << avg_serial << "\n";
-
-    cout << "Wrote summary_metrics.csv\n";
-    cout << "Done.\n";
 
     // ===========================================================
     // 7. ROOT HASH VERIFICATION
@@ -293,20 +290,5 @@ int main() {
          << (angela_root == serial_root ? "MATCH ✓" : "✗ MISMATCH") << "\n";
 
     cout << "=============================================\n\n";
-
-    // ===========================================================
-    // 8. WRITE CSV FILES FOR PLOTTING
-    // ===========================================================
-    dump_csv("live_response_times.csv", live_rt);
-    dump_csv("angela_response_times.csv", angela_rt);
-    dump_csv("serial_response_times.csv", serial_rt);
-
-    cout << "CSV files written:\n";
-    cout << "   live_response_times.csv\n";
-    cout << "   angela_response_times.csv\n";
-    cout << "   serial_response_times.csv\n";
-    cout << "   summary_metrics.csv\n";
-
-    cout << "\nDone.\n";
     return 0;
 }

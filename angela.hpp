@@ -1,6 +1,6 @@
 #pragma once
 #include "merkleTree.hpp"
-#include <algorithm> // <-- REQUIRED for sort()
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <mutex>
@@ -10,17 +10,14 @@
 #include <vector>
 
 struct AngelaNode : public MerkleNode {
-    atomic<bool> visited;
+    atomic<int> visited;
 
     AngelaNode(bool leaf = false)
-        : MerkleNode(leaf), visited(false) {}
+        : MerkleNode(leaf), visited(0) {}
 };
 
 class AngelaAlgorithm {
 public:
-    // ============================================================
-    //  STATIC WORKER WRAPPER (Fixes GCC lambda-thread issue)
-    // ============================================================
     template <typename TreeType>
     static void workerFunc(
         int tid,
@@ -62,9 +59,8 @@ public:
 
                 if (isConflict) {
                     unique_lock<mutex> pl(parent->node_mutex);
-
-                    if (!parent->visited.load()) {
-                        parent->visited.store(true);
+                    int expected = 0;
+                    if (parent->visited.compare_exchange_strong(expected, 1)) {
                         pl.unlock();
                         break;
                     }
