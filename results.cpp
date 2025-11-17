@@ -1,94 +1,7 @@
-#include "angela.hpp"
 #include "liveUpdates.hpp"
 #include "merkleTree.hpp"
 #include "utils.hpp"
 #include "workLoad.hpp"
-
-#include <iomanip>
-#include <numeric>
-
-using namespace std;
-using namespace std::chrono;
-
-long long workload_start = 0;
-
-template <typename TreeType, typename Algo>
-class LiveThreadPool {
-public:
-    TreeType &tree;
-    Algo &algo;
-    long long playback_start_time = 0;
-    int numThreads;
-    atomic<bool> stop{false};
-    queue<WorkloadEvent> q;
-    mutex q_mtx;
-    condition_variable cv;
-    vector<thread> workers;
-
-    vector<vector<long long>> response_times_per_thread;
-    static thread_local int update_counter;
-
-    LiveThreadPool(TreeType &t, Algo &a, int threads)
-        : tree(t), algo(a), numThreads(threads) {
-        response_times_per_thread.resize(threads);
-        workers.reserve(threads);
-        for (int i = 0; i < threads; i++)
-            workers.emplace_back(&LiveThreadPool::worker, this, i);
-    }
-
-    ~LiveThreadPool() {
-        {
-            lock_guard<mutex> lk(q_mtx);
-            stop = true;
-        }
-        cv.notify_all();
-        for (auto &w : workers)
-            if (w.joinable())
-                w.join();
-    }
-
-    void enqueue(const OperationRequest &op, long long arrival_us) {
-        lock_guard<mutex> lk(q_mtx);
-        q.push({op, arrival_us});
-        cv.notify_one();
-    }
-
-    void worker(int tid) {
-        while (true) {
-            WorkloadEvent job;
-
-            // wait for job
-            {
-                unique_lock<mutex> lk(q_mtx);
-                cv.wait(lk, [&] { return stop || !q.empty(); });
-                if (stop && q.empty())
-                    return;
-
-                job = q.front();
-                q.pop();
-            }
-
-            if (job.op.op_type == UPDATE) {
-                update_counter++;
-                ThreadUpdateId id(tid);
-                id.update_count = update_counter;
-                algo.update(tree, job.op.key, job.op.value, id);
-            } else if (job.op.op_type == READ_ROOT) {
-                tree.getRootHash();
-            } else if (job.op.op_type == READ_LEAF) {
-                tree.getLeafNode(job.op.key);
-            }
-
-            long long finish_us = now_us() - playback_start_time;
-            long long resp = finish_us - job.arrival_us;
-
-            response_times_per_thread[tid].push_back(resp);
-        }
-    }
-};
-
-template <typename T, typename A>
-thread_local int LiveThreadPool<T, A>::update_counter = 0;
 
 struct Result {
     long long avg_live, avg_angela, avg_serial;
@@ -96,6 +9,7 @@ struct Result {
     string live_root, angela_root, serial_root;
 };
 
+template <typename T>
 Result run_benchmark(
     int depth,
     int total_ops,
@@ -115,7 +29,7 @@ Result run_benchmark(
     long long playback_start = now_us();
     pool.playback_start_time = playback_start;
 
-    for (auto &evt : workload) {
+    for (auto &evt : stream) {
         long long target_us = playback_start + evt.arrival_us;
         while (now_us() < target_us)
             this_thread::sleep_for(50ns);
@@ -161,7 +75,7 @@ Result run_benchmark(
 
     long long exec_start = now_us();
 
-    for (auto &evt : workload) {
+    for (auto &evt : stream) {
         if (evt.op.op_type != UPDATE)
             continue;
 
@@ -211,7 +125,7 @@ Result run_benchmark(
 
     exec_start = now_us();
 
-    for (auto &evt : workload) {
+    for (auto &evt : stream) {
         long long target_us = exec_start + evt.arrival_us;
         while (now_us() < target_us)
             this_thread::sleep_for(50ns);
