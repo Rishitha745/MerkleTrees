@@ -182,6 +182,7 @@ int main() {
     batch_arrivals.reserve(batch_size);
 
     long long angela_batch_start, angela_batch_finish;
+    long long exec_start = now_us() - workload_start;
 
     for (auto &evt : stream) {
         if (evt.op.op_type != UPDATE)
@@ -197,7 +198,7 @@ int main() {
             angela_batch_finish = now_us() - workload_start;
 
             for (size_t i = 0; i < batch.size(); i++)
-                angela_rt.push_back(angela_batch_finish - batch_arrivals[i]);
+                angela_rt.push_back(angela_batch_finish - exec_start - batch_arrivals[i]);
 
             batch.clear();
             batch_arrivals.clear();
@@ -224,8 +225,8 @@ int main() {
     vector<long long> serial_rt;
     serial_rt.reserve(total_ops);
 
+    exec_start = now_us() - workload_start;
     for (auto &evt : stream) {
-        long long exec_start = now_us() - workload_start;
 
         if (evt.op.op_type == UPDATE)
             updateSerial(serialTree, evt.op.key, evt.op.value);
@@ -235,7 +236,7 @@ int main() {
             serialTree.getLeafNode(evt.op.key);
 
         long long finish_us = now_us() - workload_start;
-        serial_rt.push_back(finish_us - evt.arrival_us);
+        serial_rt.push_back(finish_us - exec_start - evt.arrival_us);
     }
 
     cout << "Serial done.\n";
@@ -269,7 +270,7 @@ int main() {
 
     cout << "Wrote summary_metrics.csv\n";
     cout << "Done.\n";
-    
+
     // ===========================================================
     // 7. ROOT HASH VERIFICATION
     // ===========================================================

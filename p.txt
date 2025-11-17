@@ -1,0 +1,579 @@
+### [1/72] Starting test ###
+
+================================================================
+Running configuration: DEPTH=12  BATCH=1024  THREADS=2  OPS=1000000
+================================================================
+
+
+Enter depth, batch_size, threads, total_ops: Depth=12 Threads=2 Ops=1000000
+
+Running Live Algorithm...
+Live finished in 28507 ms
+
+Running Angela Algorithm...
+Angela processed 1000000 updates.
+
+==== RESULTS ====
+Live Avg    : 263565390.54 us
+Angela Avg  : 285098957.62 us
+Serial Avg  : 317804651.61 us
+
+
+Live Root   : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+Angela Root : 694a2fe1b733f42bd64a266b343e3acdc9294c26121c0e1a428c81f71612dd83
+Serial Root : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+
+
+### Completed 1/72 ###
+
+### [2/72] Starting test ###
+
+================================================================
+Running configuration: DEPTH=12  BATCH=1024  THREADS=4  OPS=1000000
+================================================================
+
+
+Enter depth, batch_size, threads, total_ops: Depth=12 Threads=4 Ops=1000000
+
+
+Running Live Algorithm...
+Live finished in 15071 ms
+
+Running Angela Algorithm...
+Angela processed 1000000 updates.
+
+==== RESULTS ====
+Live Avg    : 256955208.44 us
+Angela Avg  : 269365228.76 us
+Serial Avg  : 299605656.02 us
+Wrote summary_metrics.csv
+Done.
+
+Live Root   : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+Angela Root : adcdb33923706568f231d3b12eb1dc42e8ffd64da42ee2c9384244d094a2ab0b
+Serial Root : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+
+
+### Completed 2/72 ###
+
+### [3/72] Starting test ###
+
+================================================================
+Running configuration: DEPTH=12  BATCH=1024  THREADS=8  OPS=1000000
+================================================================
+
+
+Enter depth, batch_size, threads, total_ops: Depth=12 Threads=8 Ops=1000000
+
+
+Running Live Algorithm...
+Live finished in 8971 ms
+
+Running Angela Algorithm...
+Angela processed 1000000 updates.
+
+==== RESULTS ====
+Live Avg    : 253616171.24 us
+Angela Avg  : 261623907.16 us
+Serial Avg  : 290522128.86 us
+Wrote summary_metrics.csv
+Done.
+
+Live Root   : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+Angela Root : 7ccb758b65cdb45a169f0732c4d117c58c320098da98e2dbd44a887cc715553e
+Serial Root : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+
+
+### Completed 3/72 ###
+
+### [4/72] Starting test ###
+
+================================================================
+Running configuration: DEPTH=12  BATCH=1024  THREADS=16  OPS=1000000
+================================================================
+
+
+Enter depth, batch_size, threads, total_ops: Depth=12 Threads=16 Ops=1000000
+
+
+Running Live Algorithm...
+Live finished in 5557 ms
+
+Running Angela Algorithm...
+Angela processed 1000000 updates.
+
+==== RESULTS ====
+Live Avg    : 251981618.15 us
+Angela Avg  : 257233867.91 us
+Serial Avg  : 285094096.65 us
+Wrote summary_metrics.csv
+Done.
+
+Live Root   : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+Angela Root : c987b6d199e85ff212bd805e42975f0ac07c561e7ecf6fad319f60627027e371
+Serial Root : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+
+
+### Completed 4/72 ###
+
+### [5/72] Starting test ###
+
+================================================================
+Running configuration: DEPTH=12  BATCH=1024  THREADS=32  OPS=1000000
+================================================================
+
+
+Enter depth, batch_size, threads, total_ops: Depth=12 Threads=32 Ops=1000000
+
+
+Running Live Algorithm...
+Live finished in 3652 ms
+
+Running Angela Algorithm...
+Angela processed 1000000 updates.
+
+==== RESULTS ====
+Live Avg    : 250896662.06 us
+Angela Avg  : 254396477.10 us
+Serial Avg  : 281344473.75 us
+Wrote summary_metrics.csv
+Done.
+
+Live Root   : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+Angela Root : a6fcc823755ee28ded7f714606b2cac92e4fb65d3b46d3844b6feeaa056ffb6b
+Serial Root : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+
+
+### Completed 5/72 ###
+
+### [6/72] Starting test ###
+
+================================================================
+Running configuration: DEPTH=12  BATCH=1024  THREADS=64  OPS=1000000
+================================================================
+
+
+Enter depth, batch_size, threads, total_ops: Depth=12 Threads=64 Ops=1000000
+
+
+Running Live Algorithm...
+Live finished in 3992 ms
+
+Running Angela Algorithm...
+Angela processed 1000000 updates.
+
+==== RESULTS ====
+Live Avg    : 252126218.54 us
+Angela Avg  : 255443419.44 us
+Serial Avg  : 282369212.55 us
+Wrote summary_metrics.csv
+Done.
+
+Live Root   : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+Angela Root : facee371e6004bdfb4b4af0f9937cde344a7bdb9fb92d1ef4b0ad52b0af7e4e2
+Serial Root : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+
+
+### Completed 6/72 ###
+
+### [7/72] Starting test ###
+
+================================================================
+Running configuration: DEPTH=12  BATCH=2048  THREADS=2  OPS=1000000
+================================================================
+
+
+Enter depth, batch_size, threads, total_ops: Depth=12 Threads=2 Ops=1000000
+
+
+Running Live Algorithm...
+Live finished in 28491 ms
+
+Running Angela Algorithm...
+Angela processed 1000000 updates.
+
+==== RESULTS ====
+Live Avg    : 263782826.71 us
+Angela Avg  : 286242130.31 us
+Serial Avg  : 319844301.59 us
+Wrote summary_metrics.csv
+Done.
+
+Live Root   : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+Angela Root : 8a47c6a4eaa12e87715d47d8ae935b4b138db924077132ff004021fe4b45c436
+Serial Root : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+
+
+### Completed 7/72 ###
+
+### [8/72] Starting test ###
+
+================================================================
+Running configuration: DEPTH=12  BATCH=2048  THREADS=4  OPS=1000000
+================================================================
+
+
+Enter depth, batch_size, threads, total_ops: Depth=12 Threads=4 Ops=1000000
+
+
+Running Live Algorithm...
+Live finished in 14939 ms
+
+Running Angela Algorithm...
+Angela processed 1000000 updates.
+
+==== RESULTS ====
+Live Avg    : 256632114.55 us
+Angela Avg  : 269530238.65 us
+Serial Avg  : 300351421.83 us
+Wrote summary_metrics.csv
+Done.
+
+Live Root   : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+Angela Root : db97da7e3db445c3d39a6a00b8996796a0960e19f61a0cd3c211621bcfe3d8d3
+Serial Root : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+
+
+### Completed 8/72 ###
+
+### [9/72] Starting test ###
+
+================================================================
+Running configuration: DEPTH=12  BATCH=2048  THREADS=8  OPS=1000000
+================================================================
+
+
+Enter depth, batch_size, threads, total_ops: Depth=12 Threads=8 Ops=1000000
+
+
+Running Live Algorithm...
+Live finished in 8954 ms
+
+Running Angela Algorithm...
+Angela processed 1000000 updates.
+
+==== RESULTS ====
+Live Avg    : 253828216.80 us
+Angela Avg  : 261857210.31 us
+Serial Avg  : 290994413.19 us
+Wrote summary_metrics.csv
+Done.
+
+Live Root   : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+Angela Root : c702c57ff4fa6df2dfd32f1eac99697104839af8d30178670f5930ff91a4092b
+Serial Root : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+
+
+### Completed 9/72 ###
+
+### [10/72] Starting test ###
+
+================================================================
+Running configuration: DEPTH=12  BATCH=2048  THREADS=16  OPS=1000000
+================================================================
+
+
+Enter depth, batch_size, threads, total_ops: Depth=12 Threads=16 Ops=1000000
+
+
+Running Live Algorithm...
+Live finished in 5478 ms
+
+Running Angela Algorithm...
+Angela processed 1000000 updates.
+
+==== RESULTS ====
+Live Avg    : 251584149.03 us
+Angela Avg  : 256967697.02 us
+Serial Avg  : 284987265.75 us
+Wrote summary_metrics.csv
+Done.
+
+Live Root   : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+Angela Root : 0928d7d0c32257608e6232064becf085beec3cf42239555563c355251fc95b29
+Serial Root : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+
+
+### Completed 10/72 ###
+
+### [11/72] Starting test ###
+
+================================================================
+Running configuration: DEPTH=12  BATCH=2048  THREADS=32  OPS=1000000
+================================================================
+
+
+Enter depth, batch_size, threads, total_ops: Depth=12 Threads=32 Ops=1000000
+
+
+Running Live Algorithm...
+Live finished in 3669 ms
+
+Running Angela Algorithm...
+Angela processed 1000000 updates.
+
+==== RESULTS ====
+Live Avg    : 250995906.00 us
+Angela Avg  : 254772057.02 us
+Serial Avg  : 281878867.01 us
+Wrote summary_metrics.csv
+Done.
+
+Live Root   : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+Angela Root : e85e9bb5a269525d22290c008293060064e581bf4a80ecccb8d8ae9f96d1ae90
+Serial Root : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+
+
+### Completed 11/72 ###
+
+### [12/72] Starting test ###
+
+================================================================
+Running configuration: DEPTH=12  BATCH=2048  THREADS=64  OPS=1000000
+================================================================
+
+
+Enter depth, batch_size, threads, total_ops: Depth=12 Threads=64 Ops=1000000
+
+
+Running Live Algorithm...
+Live finished in 4559 ms
+
+Running Angela Algorithm...
+Angela processed 1000000 updates.
+
+==== RESULTS ====
+Live Avg    : 252497285.21 us
+Angela Avg  : 256296788.57 us
+Serial Avg  : 283636136.75 us
+Wrote summary_metrics.csv
+Done.
+
+Live Root   : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+Angela Root : 910a619a7a04e3576ca710b34ff054f303c57a1c674e31611a405de0240c0bb4
+Serial Root : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+
+
+### Completed 12/72 ###
+
+### [13/72] Starting test ###
+
+================================================================
+Running configuration: DEPTH=12  BATCH=4096  THREADS=2  OPS=1000000
+================================================================
+
+
+Enter depth, batch_size, threads, total_ops: Depth=12 Threads=2 Ops=1000000
+
+
+Running Live Algorithm...
+Live finished in 28471 ms
+
+Running Angela Algorithm...
+Angela processed 1000000 updates.
+
+==== RESULTS ====
+Live Avg    : 263747291.12 us
+Angela Avg  : 288004257.87 us
+Serial Avg  : 321775812.17 us
+Wrote summary_metrics.csv
+Done.
+
+Live Root   : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+Angela Root : 354d6d4d2fa3f8c6e0dcadd312fffee3935d52328b4aadfaac44a63529f77f88
+Serial Root : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+
+
+### Completed 13/72 ###
+
+### [14/72] Starting test ###
+
+================================================================
+Running configuration: DEPTH=12  BATCH=4096  THREADS=4  OPS=1000000
+================================================================
+
+
+Enter depth, batch_size, threads, total_ops: Depth=12 Threads=4 Ops=1000000
+
+
+Running Live Algorithm...
+Live finished in 15115 ms
+
+Running Angela Algorithm...
+Angela processed 1000000 updates.
+
+==== RESULTS ====
+Live Avg    : 256195491.70 us
+Angela Avg  : 270351237.37 us
+Serial Avg  : 302232144.35 us
+Wrote summary_metrics.csv
+Done.
+
+Live Root   : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+Angela Root : 88984aaa9c791d38b8c9a47d004542dd1836ffd00c91091f6204ac920b71866e
+Serial Root : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+
+
+### Completed 14/72 ###
+
+### [15/72] Starting test ###
+
+================================================================
+Running configuration: DEPTH=12  BATCH=4096  THREADS=8  OPS=1000000
+================================================================
+
+
+Enter depth, batch_size, threads, total_ops: Depth=12 Threads=8 Ops=1000000
+
+
+Running Live Algorithm...
+Live finished in 8920 ms
+
+Running Angela Algorithm...
+Angela processed 1000000 updates.
+
+==== RESULTS ====
+Live Avg    : 253607332.17 us
+Angela Avg  : 262243075.98 us
+Serial Avg  : 291869073.89 us
+Wrote summary_metrics.csv
+Done.
+
+Live Root   : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+Angela Root : ad6a1acd863c630968d6afaaf152110ee20072ee24c32774b6cabaaf81b88136
+Serial Root : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+
+
+### Completed 15/72 ###
+
+### [16/72] Starting test ###
+
+================================================================
+Running configuration: DEPTH=12  BATCH=4096  THREADS=16  OPS=1000000
+================================================================
+
+
+Enter depth, batch_size, threads, total_ops: Depth=12 Threads=16 Ops=1000000
+
+
+Running Live Algorithm...
+Live finished in 5581 ms
+
+Running Angela Algorithm...
+Angela processed 1000000 updates.
+
+==== RESULTS ====
+Live Avg    : 252259285.21 us
+Angela Avg  : 258536347.68 us
+Serial Avg  : 287826069.47 us
+Wrote summary_metrics.csv
+Done.
+
+Live Root   : cf4e4a32b6393e10d4821482d902bad6e8fa4dc5fd5962e43b7255e6a55b2bb7
+Angela Root : 24a5dfc3ee74cfb0680401deae54b9cad974d53f6d6ee2a5ffc4794d68187933
+Serial Root : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+
+Live   vs Serial : ✗ MISMATCH
+Angela vs Serial : ✗ MISMATCH
+=============================================
+
+----- BENCH.OUT OUTPUT END -------
+
+### Completed 16/72 ###
+
+### [17/72] Starting test ###
+
+================================================================
+Running configuration: DEPTH=12  BATCH=4096  THREADS=32  OPS=1000000
+================================================================
+
+
+Enter depth, batch_size, threads, total_ops: Depth=12 Threads=32 Ops=1000000
+
+
+Running Live Algorithm...
+Live finished in 3582 ms
+
+Running Angela Algorithm...
+Angela processed 1000000 updates.
+
+==== RESULTS ====
+Live Avg    : 250568876.01 us
+Angela Avg  : 255263882.79 us
+Serial Avg  : 283254251.88 us
+Wrote summary_metrics.csv
+Done.
+
+Live Root   : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+Angela Root : 48305e5cfdf7aeced4db7b9887e9a6878f08d2a82d4a28f1072bc2296f827d0d
+Serial Root : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+
+
+### Completed 17/72 ###
+
+### [18/72] Starting test ###
+
+================================================================
+Running configuration: DEPTH=12  BATCH=4096  THREADS=64  OPS=1000000
+================================================================
+
+
+Enter depth, batch_size, threads, total_ops: Depth=12 Threads=64 Ops=1000000
+
+
+Running Live Algorithm...
+Live finished in 2695 ms
+
+Running Angela Algorithm...
+Angela processed 1000000 updates.
+
+==== RESULTS ====
+Live Avg    : 250736500.14 us
+Angela Avg  : 254980233.09 us
+Serial Avg  : 283122099.38 us
+Wrote summary_metrics.csv
+Done.
+
+Live Root   : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+Angela Root : 41ac32a3c0bc6a6ece64dabe88591a9751193f0157a3cacf5cb0ba9c12ca0346
+Serial Root : 21ace4b2d43dd81240c7fcca7c30dd4bc06cbe6967caa73409567234e4fdb3d3
+
+
+### Completed 18/72 ###
+
+### [19/72] Starting test ###
+
+================================================================
+Running configuration: DEPTH=16  BATCH=1024  THREADS=2  OPS=1000000
+================================================================
+
+
+Enter depth, batch_size, threads, total_ops: Depth=16 Threads=2 Ops=1000000
+
+
+Running Live Algorithm...
+Live finished in 37416 ms
+
+Running Angela Algorithm...
+Angela processed 1000000 updates.
+
+==== RESULTS ====
+Live Avg    : 269710068.96 us
+Angela Avg  : 302633178.78 us
+Serial Avg  : 350492668.91 us
+Wrote summary_metrics.csv
+Done.
+
+Live Root   : e605ccf2dc8c7ff768ec5a7490d192edac21d46f6cb91cdf712cd15eb59da58c
+Angela Root : 0e15c3a40652e4d52ed12ec9802cd76c270c5963b33f5262b6ad3defaeda223b
+Serial Root : e605ccf2dc8c7ff768ec5a7490d192edac21d46f6cb91cdf712cd15eb59da58c
+
+
+### Completed 19/72 ###
+
+### [20/72] Starting test ###
+
+================================================================
+Running configuration: DEPTH=16  BATCH=1024  THREADS=4  OPS=1000000
+================================================================
+
